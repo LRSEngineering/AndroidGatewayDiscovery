@@ -1,3 +1,27 @@
+/* Copyright 2017 Long Range Systems, LLC
+ *
+ * Redistribution and use in source and binary forms, with or without modification, are permitted
+ * provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this list of conditions
+ *    and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+ *    conditions and the following disclaimer in the documentation and/or other materials provided
+ *    with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used to
+ *    endorse or promote products derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+ * FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 package com.lrsus.ttgatewaydiscovery;
 
 import android.content.Context;
@@ -6,6 +30,7 @@ import android.net.nsd.NsdServiceInfo;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
 import java.util.HashSet;
@@ -16,7 +41,8 @@ public class MainActivity extends AppCompatActivity {
     private ListView gatewayList;
     // Gateway will be advertising with type "_tracker-http._tcp"
     private String SERVICE_TYPE = "_tracker-http._tcp";
-    // DiscoveryListener will look for advertisements
+    // DiscoveryListener will look for advertisements. It is not possible to get advertiser's
+    // host information unless passing service info to resolve listener.
     private NsdManager.DiscoveryListener mDiscoveryListener;
 
     // ResolveListener will resolve services that are discovered from discovery listener.
@@ -25,6 +51,8 @@ public class MainActivity extends AppCompatActivity {
     private NsdManager mNsdManager;
     // Vector of NsdServiceInfo will hold all the gateways discovered.
     private HashSet<String> mServices = new HashSet<>();
+    // Adapter for list view.
+    private ArrayAdapter<String> adapter;
 
     class GatewayResolveListener implements NsdManager.ResolveListener {
 
@@ -36,9 +64,9 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onServiceResolved(NsdServiceInfo serviceInfo) {
-            String hostAddress = serviceInfo.getHost().getHostAddress();
-            Log.i(TAG, "Found address " + hostAddress);
+            final String hostAddress = serviceInfo.getHost().getHostAddress();
 
+            // To prevent duplicate items, we'll add it to set.
             if (!mServices.contains(hostAddress)) {
                 Log.e(TAG, "Resolve Succeeded. " + serviceInfo);
 
@@ -47,7 +75,16 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
-                mServices.add(serviceInfo.getHost().getHostAddress());
+                // Add to set
+                mServices.add(hostAddress);
+
+                // Update UI ListView with host address.
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        adapter.add(hostAddress);
+                    }
+                });
             }
         }
     };
@@ -95,6 +132,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         gatewayList = (ListView) findViewById(R.id.gateway_addresses);
+        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
+        gatewayList.setAdapter(adapter);
         mNsdManager = (NsdManager) getSystemService(Context.NSD_SERVICE);
     }
 
